@@ -3,6 +3,7 @@ import torch
 import numpy as np
 
 
+
 def compute_mmd(x, y, knl):
     """
     x : N x d1 x ...
@@ -11,6 +12,7 @@ def compute_mmd(x, y, knl):
     """
     grams = knl.forward(x, x).mean() + knl.forward(y, y).mean() 
     grams += - 2 * knl.forward(x, y).mean()
+    grams = torch.maximum(torch.tensor(0), grams)
     kT = torch.sqrt(grams)
     return kT
 
@@ -25,38 +27,33 @@ def train(xs, xt, kernel, niter, n_batch=int(1e1),
 
     Nt = xt.shape[0]  # nb of training samples, dim
     Ns = xs.shape[0]  # nb of particles beging learned
-    Nval = xval.shape[0]
     dims = xt.shape[1:]
     K1 = kernel.forward
     dK1 = kernel.grad
+    lbd = 1 # coef of base Gaussian when not on sphere
 
     xss = []
-    V2avgs = []
+    
     kT1avgs = []
-    u2avgs = []
-
-    V2avg = 0
     kT1avg = 0
 
     for i in range(1, niter+1):
         batch_indxs = torch.randint(Nt, (n_batch,))
         xtb = xt[batch_indxs, :]
 
+        blu1 = dK1(xs, xtb)
+        blu2 = dK1(xs, xs)
+
         kT1 = compute_mmd(xs, xtb, kernel)
         kT1avg = (i-1) / i * kT1avg + kT1 / i
 
-        # if I understand correctly xvals are the test values to approximate int
-        V2 = (2*torch.mean(K1(xval, xs), dim=1) - 2*torch.mean(K1(xval, xtb), dim=1))
-        V2 /= kT1
-        V2avg = (i - 1) / i * V2avg + V2/i
-
         diff = dK1(xs, xs).mean(1) - dK1(xs, xtb).mean(1)
-        
+
         if isinstance(kernel, Bessel_1d):
             ## should have been more careful about implementing 
             diff.unsqueeze_(1)
 
-        xs = xs - 2 * dt * diff
+        xs = xs -  dt * diff
         
         xs += np.sqrt(2 * dt * kT1 / beta) * torch.randn(xs.shape)
 
@@ -66,25 +63,20 @@ def train(xs, xt, kernel, niter, n_batch=int(1e1),
         elif sphere == 'project':
             # TO DO for array data
             xs = torch.nn.functional.normalize(xs, p=2, dim=1) 
+        else:
+            xs -= lbd * dt * kT1 / beta * xs ** 2 
             
         if i % (niter / 10) == 0:
-            u2avg = torch.exp(- beta * V2avg)
-            u2avg = Nval * u2avg / torch.sum(u2avg)
-            
-            V2avgs.append(V2avg)
             kT1avgs.append(kT1avg)
-            u2avgs.append(u2avg)
             xss.append(xs)
 
-            mean_grad_norm = torch.mean(torch.abs(2 * dt * (dK1(xs, xs).mean(1) - dK1(xs, xtb).mean(1)) ))
+            mean_grad_norm = torch.mean(torch.abs(2 * dt * diff ))
             noise_std = np.sqrt(2*dt*kT1/beta)
 
             print('Iter: {:d}, Gradient norm average: {:0.2e}, Noise standard deviation: {:0.2e}'.format(i, mean_grad_norm, noise_std))
             
     to_return = {
-        'xss': xs,
-        'V2avgs': V2avgs,
-        'u2avgs': u2avgs,
+        'xss': xss,
         'kT1avgs': kT1avgs
     }
     

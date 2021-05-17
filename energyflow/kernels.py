@@ -4,14 +4,29 @@ import torch
 import torch.nn as nn
 
 class RBF(nn.Module):
-    def __init__(sigma=1):
-        self.sigma=sigma
+    def __init__(self, sigma=1):
+        self.sigma = sigma
 
-    def forward(self, x, xp):
+    def forward(self, x, y):
         """
-        inputs have shape ..
-        """
+        inputs have shape (N x d) et (N' x d) 
+        N = # samples
+        d = dim
 
+        output shape (N, N')
+        """
+        gram_diff_sum = torch.einsum('ki,li->kl', x, -y)
+        out = torch.exp(- 0.5 * (gram_diff_sum ** 2) / self.sigma) 
+        return out / np.sqrt(2 * np.pi * self.sigma) ** x.shape[1]
+
+    def grad(self, x, y):
+        """
+        return dk/dx first argument
+
+        output shape (N, N', d)
+        """ 
+        gram_diff = x.unsqueeze(1) - y.unsqueeze(0)
+        return self.forward(x, y).unsqueeze(2) * 0.5 * gram_diff / self.sigma
 
 class Bessel(nn.Module):
     """

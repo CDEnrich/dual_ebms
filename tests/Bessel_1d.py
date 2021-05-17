@@ -112,6 +112,23 @@ def plot_figure(x2, x, up, u2avg, V2avg, beta, t=0):
     # fig.savefig(f'plots_exp_cos/time_{round(t, 5)}.pdf', bbox_inches='tight', pad_inches=0)
     # plt.close('all')
 
+K1 = kernel.forward
+dK1 = kernel.grad
+Nval = Nx
+
+V2avgs = []
+u2avgs = []
+V2avg = 0
+
+for xs in xss:
+    V2 = (2 * K1(xval, xs).mean(1) - 2 * K1(xval, xt).mean(1))
+    V2 /= kT1
+    V2avg = (i - 1) / i * V2avg + V2/i
+
+    u2avg = torch.exp(- beta * V2avg)
+    u2avg = Nval * u2avg / torch.sum(u2avg)
+    u2avgs.append(u2avg)
+    V2avgs.append(V2avg)
 
 # for split in range(len(V2avgs)):
 split = -1

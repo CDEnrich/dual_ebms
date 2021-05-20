@@ -3,7 +3,6 @@ import torch
 import numpy as np
 
 
-
 def compute_mmd(x, y, knl):
     """
     x : N x d1 x ...
@@ -30,7 +29,7 @@ def train(xs, xt, kernel, niter, n_batch=int(1e1),
     dims = xt.shape[1:]
     K1 = kernel.forward
     dK1 = kernel.grad
-    lbd = 1 # coef of base Gaussian when not on sphere
+    lbd = 0.1 # coef of base Gaussian when not on sphere
 
     xss = []
     
@@ -53,7 +52,7 @@ def train(xs, xt, kernel, niter, n_batch=int(1e1),
             ## should have been more careful about implementing 
             diff.unsqueeze_(1)
 
-        xs = xs -  dt * diff
+        xs = xs - dt * diff
         
         xs += np.sqrt(2 * dt * kT1 / beta) * torch.randn(xs.shape)
 
@@ -64,7 +63,7 @@ def train(xs, xt, kernel, niter, n_batch=int(1e1),
             # TO DO for array data
             xs = torch.nn.functional.normalize(xs, p=2, dim=1) 
         else:
-            xs -= lbd * dt * kT1 / beta * xs ** 2 
+            xs -= 2 * lbd * dt * kT1 / beta * xs 
             
         if i % (niter / 10) == 0:
             kT1avgs.append(kT1avg)

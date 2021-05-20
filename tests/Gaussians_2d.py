@@ -15,8 +15,8 @@ parser.add_argument('-w', '--weights', type=float, nargs='+', default=[1.])
 parser.add_argument('-sprd', '--spread-from-o', type=float, default=4)
 parser.add_argument('-shft', '--shift', type=float, default=0)
 
-parser.add_argument('-nt', '--n-target', type=int, default=100)
-parser.add_argument('-nw', '--n-walkers', type=int, default=100)
+parser.add_argument('-nt', '--n-target', type=int, default=int(1e3))
+parser.add_argument('-nw', '--n-walkers', type=int, default=int(1e3))
 
 args = parser.parse_args()
 
@@ -61,9 +61,9 @@ xt = mog.sample(args.n_target)
 p = torch.randint(0, args.n_target, (args.n_walkers,), device=device)
 xs = xt[p, :] + 0.1 * torch.randn(args.n_walkers, dim)
 
-kernel = RBF(sigma=0.1)
+kernel = RBF(sigma=1)
 niter = 1000
-dt = 5e-1
+dt = 5e-2
 beta = 1.
 # xval = torch.rand(args.n_val, dim) * (x_max - x_min) + x_min
 # xs = x1
